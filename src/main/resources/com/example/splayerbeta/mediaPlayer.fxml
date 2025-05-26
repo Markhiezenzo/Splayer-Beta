@@ -55,9 +55,9 @@
                                 <String fx:value="All" />
                             </value>
                         </ComboBox>
-                        <ComboBox fx:id="themeComboBox" style="-fx-base: #555;" promptText="Select Theme" HBox.hgrow="SOMETIMES" />
+                        <ComboBox fx:id="themeComboBox" promptText="Select Theme" style="-fx-base: #555;" HBox.hgrow="SOMETIMES" />
                         <Label text="Speed:" textFill="WHITE" />
-                        <ComboBox fx:id="speedComboBox" style="-fx-base: #555;" prefWidth="100.0" HBox.hgrow="SOMETIMES" />
+                        <ComboBox fx:id="speedComboBox" prefWidth="100.0" style="-fx-base: #555;" HBox.hgrow="SOMETIMES" />
                         <Label fx:id="speedLabel" text="1.0x" textFill="WHITE" />
                         <Label text="Sleep:" textFill="WHITE" />
                         <ComboBox fx:id="sleepTimerCombo" style="-fx-base: #555;" />

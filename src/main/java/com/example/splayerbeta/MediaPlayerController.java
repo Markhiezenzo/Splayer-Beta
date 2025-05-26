@@ -157,12 +157,6 @@ public class MediaPlayerController implements Initializable {
         filteredMediaFiles.addAll(mediaFiles);
         filteredFileNames.addAll(fileNames);
 
-        // Hardcode test items for debugging
-        if (filteredFileNames.isEmpty()) {
-            filteredFileNames.addAll("Test Item 1", "Test Item 2", "Test Item 3");
-            System.out.println("Added test items to filteredFileNames");
-        }
-
         searchField.setOnAction(e -> handleSearch(null));
         searchField.textProperty().addListener((obs, oldVal, newVal) -> filterMedia(newVal));
 
@@ -172,16 +166,24 @@ public class MediaPlayerController implements Initializable {
             }
         });
 
-        // Add listener for BorderPane size changes
+        // Add listeners for BorderPane size changes
         borderPane.widthProperty().addListener((obs, oldVal, newVal) -> {
-            if (isListView) {
-                mediaListView.setPrefWidth(borderPane.getLeft().getBoundsInParent().getWidth() - 10);
-            }
+            Platform.runLater(() -> {
+                if (isListView) {
+                    mediaListView.setPrefWidth(newVal.doubleValue() - leftVBox.getWidth() - 20);
+                    mediaListView.requestLayout();
+                    mediaScrollPane.requestLayout();
+                }
+            });
         });
         borderPane.heightProperty().addListener((obs, oldVal, newVal) -> {
-            if (isListView) {
-                mediaListView.setPrefHeight(newVal.doubleValue() - 50);
-            }
+            Platform.runLater(() -> {
+                if (isListView) {
+                    mediaListView.setPrefHeight(newVal.doubleValue() - topVBox.getHeight() - bottomVBox.getHeight() - 20);
+                    mediaListView.requestLayout();
+                    mediaScrollPane.requestLayout();
+                }
+            });
         });
 
         // Add listeners for videoContainer size changes
@@ -291,11 +293,11 @@ public class MediaPlayerController implements Initializable {
 
     private void initializeEmptyPlaylistIcon() {
         try {
-            Image icon = new Image(getClass().getResourceAsStream("/icon/downloadIcon.png"));
+            Image icon = new Image(getClass().getResourceAsStream("/icon/downloadIcon.png"), 100, 100, true, true);
             emptyPlaylistIcon.setImage(icon);
         } catch (Exception e) {
             System.err.println("Error loading empty playlist icon: " + e.getMessage());
-            emptyPlaylistIcon.setImage(thumbnailManager.createPlaceholderImage(50, 50));
+            emptyPlaylistIcon.setImage(thumbnailManager.createPlaceholderImage(100, 100));
         }
     }
 
@@ -576,32 +578,46 @@ public class MediaPlayerController implements Initializable {
 
     private void switchToListView() {
         if (!isListView) {
+            System.out.println("Switching to ListView...");
             mediaGridView.setVisible(false);
+            mediaGridView.setManaged(false);
             mediaListView.setVisible(true);
+            mediaListView.setManaged(true);
             isListView = true;
-            System.out.println("Switching to ListView. Items in filteredFileNames: " + filteredFileNames.size());
-            mediaListView.setPrefWidth(mediaScrollPane.getWidth() - 20);
-            mediaListView.setPrefHeight(mediaScrollPane.getHeight() - 20);
-            mediaListView.setItems(filteredFileNames);
-            mediaListView.refresh();
-            System.out.println("ListView width: " + mediaListView.getWidth() + ", height: " + mediaListView.getHeight());
-            mediaScrollPane.requestLayout();
-            mediaListView.requestLayout();
+
+            // Ensure ListView fills the available space
+            mediaListView.setPrefWidth(mediaScrollPane.getWidth() - 10);
+            mediaListView.setPrefHeight(mediaScrollPane.getHeight() - 10);
+
+            // Force redraw by resetting items
+            Platform.runLater(() -> {
+                ObservableList<String> tempItems = mediaListView.getItems();
+                mediaListView.setItems(null); // Clear items to force redraw
+                mediaListView.setItems(tempItems); // Rebind items
+                mediaListView.refresh();
+                mediaListView.requestLayout();
+                mediaScrollPane.requestLayout();
+                borderPane.requestLayout();
+                System.out.println("Switched to ListView. Items: " + filteredFileNames.size() + ", Width: " + mediaListView.getWidth() + ", Height: " + mediaListView.getHeight());
+            });
+
+            updateEmptyPlaylistVisibility();
         }
-        updateEmptyPlaylistVisibility();
     }
 
     private void switchToGridView() {
         if (isListView) {
             mediaListView.setVisible(false);
+            mediaListView.setManaged(false);
             mediaGridView.setVisible(true);
+            mediaGridView.setManaged(true);
             isListView = false;
             thumbnailManager.getThumbnailImageViews().clear();
             populateGridView();
             mediaScrollPane.requestLayout();
             mediaGridView.requestLayout();
+            updateEmptyPlaylistVisibility();
         }
-        updateEmptyPlaylistVisibility();
     }
 
     private void setupProgressSlider() {
@@ -625,69 +641,61 @@ public class MediaPlayerController implements Initializable {
         System.out.println("ListView items set: " + filteredFileNames.size());
 
         mediaListView.setCellFactory(lv -> new ListCell<>() {
+            private final ImageView imageView = new ImageView();
+            private final Label label = new Label();
+            private final HBox content = new HBox(10, imageView, label);
+
+            {
+                imageView.setFitWidth(50);
+                imageView.setFitHeight(50);
+                imageView.setPreserveRatio(true);
+                content.setAlignment(Pos.CENTER_LEFT);
+                HBox.setHgrow(label, Priority.ALWAYS);
+                label.setMaxWidth(Double.MAX_VALUE);
+                label.setVisible(true);
+                label.setManaged(true);
+                label.setStyle("-fx-text-fill: white; -fx-font-size: 14;");
+                setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 14; -fx-padding: 5;");
+            }
+
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
-                    if (filteredFileNames.isEmpty()) {
-                        setText("Playlist is currently empty, drop a file here or select media source from the left");
-                        setStyle("-fx-text-fill: white; -fx-font-size: 14; -fx-alignment: center; -fx-padding: 5;");
-                        setGraphic(emptyPlaylistIcon);
-                    } else {
-                        setText(null);
-                        setGraphic(null);
-                    }
-                } else {
-                    setText(item);
-                    setStyle("-fx-text-fill: white; -fx-font-size: 14; -fx-padding: 5;");
                     setGraphic(null);
+                    setText(null);
+                    System.out.println("ListView cell: empty");
+                } else {
+                    System.out.println("ListView cell: rendering item - " + item);
+                    label.setText(item);
+                    setGraphic(content);
+
+                    int index = getIndex();
+                    if (index >= 0 && index < filteredMediaFiles.size()) {
+                        File file = filteredMediaFiles.get(index);
+                        thumbnailManager.getThumbnailImageViews().put(file, imageView);
+                        thumbnailManager.loadThumbnail(file, imageView, 50, 50);
+                    }
                 }
             }
         });
 
-        mediaListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && !filteredFileNames.isEmpty()) {
-                currentMediaIndex = filteredFileNames.indexOf(newVal);
-                currentFileLabel.setText(newVal);
-                loadAndPlayMedia(currentMediaIndex);
-                btnAddToPlaylist.setDisable(false);
-            }
+        mediaListView.setFixedCellSize(80);
+        mediaListView.prefWidthProperty().bind(mediaScrollPane.widthProperty().subtract(10));
+        mediaListView.prefHeightProperty().bind(mediaScrollPane.heightProperty().subtract(10));
+        mediaListView.setStyle("-fx-background-color: #333; -fx-control-inner-background: #444; -fx-border-color: #555; -fx-border-width: 2;");
+        mediaListView.setFocusTraversable(true);
+
+        mediaListView.itemsProperty().addListener((obs, oldVal, newVal) -> {
+            System.out.println("ListView items changed: " + (newVal != null ? newVal.size() : 0));
+            Platform.runLater(() -> {
+                mediaListView.refresh();
+                mediaListView.requestLayout();
+                mediaScrollPane.requestLayout();
+            });
         });
     }
 
-    private void populateGridView() {
-        mediaGridView.getChildren().clear();
-        mediaGridView.getRowConstraints().clear();
-        mediaGridView.getColumnConstraints().clear();
-
-        if (!filteredMediaFiles.isEmpty()) {
-            double availableWidth = mediaScrollPane.getWidth() - 20;
-            int columns = Math.max(1, (int)(availableWidth / (150 + 20)));
-
-            for (int i = 0; i < columns; i++) {
-                ColumnConstraints col = new ColumnConstraints();
-                col.setPercentWidth(100.0 / columns);
-                mediaGridView.getColumnConstraints().add(col);
-            }
-
-            for (int i = 0; i < filteredFileNames.size(); i++) {
-                String fileName = filteredFileNames.get(i);
-                File file = filteredMediaFiles.get(i);
-                int row = i / columns;
-                int col = i % columns;
-
-                VBox cell = createMediaCell(file, fileName);
-                mediaGridView.add(cell, col, row);
-
-                while (mediaGridView.getRowConstraints().size() <= row) {
-                    RowConstraints rowConst = new RowConstraints();
-                    rowConst.setVgrow(Priority.ALWAYS);
-                    mediaGridView.getRowConstraints().add(rowConst);
-                }
-            }
-        }
-        updateEmptyPlaylistVisibility();
-    }
 
     private VBox createMediaCell(File file, String fileName) {
         VBox cell = new VBox(5);
@@ -809,7 +817,7 @@ public class MediaPlayerController implements Initializable {
         fullScreenStage.setOnCloseRequest(e -> exitFullScreen());
         fullScreenStage.show();
         isFullScreen = true;
-        btnFullScreen.setText("⏷");
+        btnFullScreen.setText("Exit Fullscreen");
         if (pipStage != null && pipStage.isShowing()) {
             pipView.setMediaPlayer(null);
             pipStage.hide();
@@ -823,7 +831,7 @@ public class MediaPlayerController implements Initializable {
         fullScreenStage = null;
         fullScreenMediaView = null;
         isFullScreen = false;
-        btnFullScreen.setText("⏶");
+        btnFullScreen.setText("Fullscreen");
         if (mediaPlayer != null) {
             mediaView.setMediaPlayer(mediaPlayer);
         }
@@ -954,34 +962,52 @@ public class MediaPlayerController implements Initializable {
     }
 
     private void updateEmptyPlaylistVisibility() {
-        boolean isEmpty = filteredMediaFiles.isEmpty();
+        boolean isEmpty = filteredFileNames.isEmpty();
+        System.out.println("Updating empty playlist visibility. IsEmpty: " + isEmpty + ", isListView: " + isListView);
         emptyPlaylistPane.setVisible(isEmpty);
         emptyPlaylistPane.setManaged(isEmpty);
         mediaScrollPane.setVisible(!isEmpty);
         mediaScrollPane.setManaged(!isEmpty);
 
-        if (isEmpty) {
-            mediaListView.setVisible(false);
-            mediaGridView.setVisible(false);
-        } else {
+        if (!isEmpty) {
             mediaListView.setVisible(isListView);
+            mediaListView.setManaged(isListView);
             mediaGridView.setVisible(!isListView);
+            mediaGridView.setManaged(!isListView);
+            if (isListView) {
+                // Force ListView to refresh and layout
+                Platform.runLater(() -> {
+                    mediaListView.setItems(null); // Clear to force redraw
+                    mediaListView.setItems(filteredFileNames); // Rebind items
+                    mediaListView.refresh();
+                    mediaListView.requestLayout();
+                    mediaScrollPane.requestLayout();
+                    borderPane.requestLayout();
+                    System.out.println("ListView updated in visibility check. Items: " + filteredFileNames.size());
+                });
+            }
+        } else {
+            mediaListView.setVisible(false);
+            mediaListView.setManaged(false);
+            mediaGridView.setVisible(false);
+            mediaGridView.setManaged(false);
         }
-
-        mediaListView.setStyle(isEmpty && isListView ?
-                "-fx-alignment: center; -fx-background-color: #333;" :
-                "-fx-background-color: #333; -fx-control-inner-background: #333;");
     }
 
     public void updateMediaViews() {
-        mediaListView.setItems(filteredFileNames);
-        mediaListView.refresh();
-        System.out.println("updateMediaViews - ListView items: " + filteredFileNames.size());
-        if (!isListView) {
-            populateGridView();
-        }
-        mediaScrollPane.requestLayout();
-        updateEmptyPlaylistVisibility();
+        System.out.println("Updating media views...");
+        Platform.runLater(() -> {
+            mediaListView.setItems(null); // Clear to force redraw
+            mediaListView.setItems(filteredFileNames); // Rebind to ensure updates
+            mediaListView.refresh();
+            mediaListView.requestLayout();
+            System.out.println("updateMediaViews - ListView items: " + filteredFileNames.size());
+            if (!isListView) {
+                populateGridView();
+            }
+            mediaScrollPane.requestLayout();
+            updateEmptyPlaylistVisibility();
+        });
     }
 
     private void loadMediaFiles(File folder) {
@@ -1010,8 +1036,6 @@ public class MediaPlayerController implements Initializable {
             }
 
             System.out.println("Loaded " + mediaFiles.size() + " media files.");
-            System.out.println("filteredFileNames size: " + filteredFileNames.size());
-
             if (!filteredMediaFiles.isEmpty()) {
                 currentMediaIndex = 0;
                 currentFileLabel.setText(filteredFileNames.get(0));
@@ -1020,13 +1044,21 @@ public class MediaPlayerController implements Initializable {
                 btnPrevious.setDisable(false);
                 btnNext.setDisable(false);
                 btnAddToPlaylist.setDisable(false);
-                updateMediaViews();
+                Platform.runLater(() -> {
+                    updateMediaViews();
+                    mediaListView.setItems(null); // Clear to force redraw
+                    mediaListView.setItems(filteredFileNames); // Rebind
+                    mediaListView.refresh();
+                    mediaListView.requestLayout();
+                    mediaScrollPane.requestLayout();
+                    borderPane.requestLayout();
+                });
             } else {
-                updateEmptyPlaylistVisibility();
+                Platform.runLater(this::updateEmptyPlaylistVisibility);
             }
         } else {
             System.out.println("No files found in folder: " + folder.getAbsolutePath());
-            updateEmptyPlaylistVisibility();
+            Platform.runLater(this::updateEmptyPlaylistVisibility);
         }
     }
 
@@ -1070,6 +1102,40 @@ public class MediaPlayerController implements Initializable {
         if (mediaPlayer != null) {
             handlePlay(null);
         }
+    }
+
+    private void populateGridView() {
+        mediaGridView.getChildren().clear();
+        mediaGridView.getRowConstraints().clear();
+        mediaGridView.getColumnConstraints().clear();
+
+        if (!filteredMediaFiles.isEmpty()) {
+            double availableWidth = mediaScrollPane.getWidth() - 20;
+            int columns = Math.max(1, (int)(availableWidth / (150 + 20)));
+
+            for (int i = 0; i < columns; i++) {
+                ColumnConstraints col = new ColumnConstraints();
+                col.setPercentWidth(100.0 / columns);
+                mediaGridView.getColumnConstraints().add(col);
+            }
+
+            for (int i = 0; i < filteredFileNames.size(); i++) {
+                String fileName = filteredFileNames.get(i);
+                File file = filteredMediaFiles.get(i);
+                int row = i / columns;
+                int col = i % columns;
+
+                VBox cell = createMediaCell(file, fileName);
+                mediaGridView.add(cell, col, row);
+
+                while (mediaGridView.getRowConstraints().size() <= row) {
+                    RowConstraints rowConst = new RowConstraints();
+                    rowConst.setVgrow(Priority.ALWAYS);
+                    mediaGridView.getRowConstraints().add(rowConst);
+                }
+            }
+        }
+        updateEmptyPlaylistVisibility();
     }
 
     private void adjustMediaViewSize(Media media) {
