@@ -219,11 +219,10 @@
                         </VBox>
                     </children>
                 </StackPane>
-                <ScrollPane fx:id="mediaScrollPane" fitToHeight="true" fitToWidth="true" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                <ScrollPane fx:id="mediaScrollPane" fitToWidth="true" fitToHeight="true" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <content>
-                        <VBox HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                        <VBox fx:id="mediaContainer" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                             <children>
-                                <ListView fx:id="mediaListView" style="-fx-background-color: #333; -fx-control-inner-background: #333;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
                                 <GridPane fx:id="mediaGridView" style="-fx-background-color: #333;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                                     <columnConstraints>
                                         <ColumnConstraints />
@@ -233,6 +232,7 @@
                                         <RowConstraints />
                                     </rowConstraints>
                                 </GridPane>
+                                <ListView fx:id="mediaListView" style="-fx-background-color: #333; -fx-control-inner-background: #333;" visible="false" managed="false" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
                             </children>
                         </VBox>
                     </content>

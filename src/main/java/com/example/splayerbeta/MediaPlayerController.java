@@ -163,6 +163,14 @@ public class MediaPlayerController implements Initializable {
         mediaScrollPane.widthProperty().addListener((obs, oldVal, newVal) -> {
             if (!isListView) {
                 Platform.runLater(this::populateGridView);
+            } else {
+                mediaListView.setPrefWidth(newVal.doubleValue() - 10);
+            }
+        });
+
+        mediaScrollPane.heightProperty().addListener((obs, oldVal, newVal) -> {
+            if (isListView) {
+                mediaListView.setPrefHeight(newVal.doubleValue() - 10);
             }
         });
 
@@ -585,20 +593,17 @@ public class MediaPlayerController implements Initializable {
             mediaListView.setManaged(true);
             isListView = true;
 
-            // Ensure ListView fills the available space
-            mediaListView.setPrefWidth(mediaScrollPane.getWidth() - 10);
-            mediaListView.setPrefHeight(mediaScrollPane.getHeight() - 10);
-
-            // Force redraw by resetting items
             Platform.runLater(() -> {
-                ObservableList<String> tempItems = mediaListView.getItems();
-                mediaListView.setItems(null); // Clear items to force redraw
-                mediaListView.setItems(tempItems); // Rebind items
+                mediaListView.setItems(null); // Clear to force redraw
+                mediaListView.setItems(filteredFileNames); // Rebind items
                 mediaListView.refresh();
-                mediaListView.requestLayout();
                 mediaScrollPane.requestLayout();
                 borderPane.requestLayout();
-                System.out.println("Switched to ListView. Items: " + filteredFileNames.size() + ", Width: " + mediaListView.getWidth() + ", Height: " + mediaListView.getHeight());
+                System.out.println("Switched to ListView. Items: " + filteredFileNames.size() +
+                        ", ScrollPane Width: " + mediaScrollPane.getWidth() +
+                        ", ScrollPane Height: " + mediaScrollPane.getHeight() +
+                        ", ListView Width: " + mediaListView.getWidth() +
+                        ", ListView Height: " + mediaListView.getHeight());
             });
 
             updateEmptyPlaylistVisibility();
@@ -638,6 +643,8 @@ public class MediaPlayerController implements Initializable {
 
     private void setupListView() {
         mediaListView.setItems(filteredFileNames);
+        mediaListView.setMinWidth(200); // Prevent collapsing
+        mediaListView.setMinHeight(200); // Prevent collapsing
         System.out.println("ListView items set: " + filteredFileNames.size());
 
         mediaListView.setCellFactory(lv -> new ListCell<>() {
@@ -695,7 +702,6 @@ public class MediaPlayerController implements Initializable {
             });
         });
     }
-
 
     private VBox createMediaCell(File file, String fileName) {
         VBox cell = new VBox(5);
@@ -975,7 +981,6 @@ public class MediaPlayerController implements Initializable {
             mediaGridView.setVisible(!isListView);
             mediaGridView.setManaged(!isListView);
             if (isListView) {
-                // Force ListView to refresh and layout
                 Platform.runLater(() -> {
                     mediaListView.setItems(null); // Clear to force redraw
                     mediaListView.setItems(filteredFileNames); // Rebind items
@@ -983,7 +988,9 @@ public class MediaPlayerController implements Initializable {
                     mediaListView.requestLayout();
                     mediaScrollPane.requestLayout();
                     borderPane.requestLayout();
-                    System.out.println("ListView updated in visibility check. Items: " + filteredFileNames.size());
+                    System.out.println("ListView refreshed in visibility check. Items: " + filteredFileNames.size() +
+                            ", ScrollPane Width: " + mediaScrollPane.getWidth() +
+                            ", ScrollPane Height: " + mediaScrollPane.getHeight());
                 });
             }
         } else {
