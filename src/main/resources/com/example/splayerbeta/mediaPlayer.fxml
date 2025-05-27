@@ -109,31 +109,6 @@
                         <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
                     </padding>
                     <children>
-                        <Button fx:id="btnPrevious" mnemonicParsing="false" style="-fx-base: #444;" text="⏮">
-                            <tooltip>
-                                <Tooltip text="Previous media" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="btnPlay" mnemonicParsing="false" style="-fx-base: #444;" text="▶">
-                            <tooltip>
-                                <Tooltip text="Play" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="btnPause" mnemonicParsing="false" style="-fx-base: #444;" text="⏸">
-                            <tooltip>
-                                <Tooltip text="Pause" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="btnStop" mnemonicParsing="false" style="-fx-base: #444;" text="⏹">
-                            <tooltip>
-                                <Tooltip text="Stop" />
-                            </tooltip>
-                        </Button>
-                        <Button fx:id="btnNext" mnemonicParsing="false" style="-fx-base: #444;" text="⏭">
-                            <tooltip>
-                                <Tooltip text="Next media" />
-                            </tooltip>
-                        </Button>
                         <Label fx:id="currentTimeLabel" text="00:00" textFill="WHITE" />
                         <Slider fx:id="progressSlider" max="100.0" style="-fx-base: #555;" HBox.hgrow="ALWAYS" />
                         <Label fx:id="totalTimeLabel" text="00:00" textFill="WHITE" />
@@ -147,6 +122,31 @@
                         <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
                     </padding>
                     <children>
+                        <Button fx:id="btnPrevious" mnemonicParsing="false" style="-fx-base: #444;" text="⏮">
+                            <tooltip>
+                                <Tooltip text="Previous media" />
+                            </tooltip>
+                        </Button>
+                        <Button fx:id="btnPause" mnemonicParsing="false" style="-fx-base: #444;" text="⏸">
+                            <tooltip>
+                                <Tooltip text="Pause" />
+                            </tooltip>
+                        </Button>
+                        <Button fx:id="btnPlay" mnemonicParsing="false" style="-fx-base: #444;" text="▶">
+                            <tooltip>
+                                <Tooltip text="Play" />
+                            </tooltip>
+                        </Button>
+                        <Button fx:id="btnStop" mnemonicParsing="false" style="-fx-base: #444;" text="⏹">
+                            <tooltip>
+                                <Tooltip text="Stop" />
+                            </tooltip>
+                        </Button>
+                        <Button fx:id="btnNext" mnemonicParsing="false" style="-fx-base: #444;" text="⏭">
+                            <tooltip>
+                                <Tooltip text="Next media" />
+                            </tooltip>
+                        </Button>
                         <Button fx:id="btnRepeat" mnemonicParsing="false" style="-fx-base: #444;" text="🔁">
                             <tooltip>
                                 <Tooltip text="Toggle repeat" />
