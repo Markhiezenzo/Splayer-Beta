@@ -244,6 +244,8 @@ public class MediaPlayerController implements Initializable {
             }
         });
 
+        // Clear existing items before adding to avoid duplication
+        mediaTypeFilter.getItems().clear();
         mediaTypeFilter.getItems().addAll("All", "Audio", "Video");
         mediaTypeFilter.setValue("All");
         mediaTypeFilter.setOnAction(e -> filterMediaByType(mediaTypeFilter.getValue()));
@@ -274,7 +276,6 @@ public class MediaPlayerController implements Initializable {
 
         updateEmptyPlaylistVisibility();
     }
-
 
     private void initializeDefaultImageView() {
         Image defaultImage;
@@ -392,6 +393,7 @@ public class MediaPlayerController implements Initializable {
     }
 
     private void setupSleepTimer() {
+        sleepTimerCombo.getItems().clear(); // Clear existing items
         sleepTimerCombo.getItems().addAll(5, 10, 15, 30, 45, 60, 90, 120);
         sleepTimerCombo.setValue(30);
         btnSleepTimer.setOnAction(e -> {
@@ -581,6 +583,7 @@ public class MediaPlayerController implements Initializable {
     }
 
     private void setupViewToggle() {
+        btnfilelist.getItems().clear(); // Clear existing items to avoid duplication
         btnfilelist.getItems().addAll("Grid View", "List View");
         btnfilelist.setValue("Grid View");
         btnfilelist.setOnAction(e -> {
