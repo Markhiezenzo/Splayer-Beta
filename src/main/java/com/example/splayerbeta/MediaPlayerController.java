@@ -86,10 +86,10 @@ public class MediaPlayerController implements Initializable {
 
     // Media player variables
     private MediaPlayer mediaPlayer;
-    private ObservableList<File> mediaFiles = FXCollections.observableArrayList();
-    private ObservableList<String> fileNames = FXCollections.observableArrayList();
-    private ObservableList<File> filteredMediaFiles = FXCollections.observableArrayList();
-    private ObservableList<String> filteredFileNames = FXCollections.observableArrayList();
+    private final ObservableList<File> mediaFiles = FXCollections.observableArrayList();
+    private final ObservableList<String> fileNames = FXCollections.observableArrayList();
+    private final ObservableList<File> filteredMediaFiles = FXCollections.observableArrayList();
+    private final ObservableList<String> filteredFileNames = FXCollections.observableArrayList();
     private int currentMediaIndex = 0;
     private boolean isPlaying = false;
     private boolean isRepeating = false;
@@ -110,20 +110,18 @@ public class MediaPlayerController implements Initializable {
     private EqualizerManager equalizerManager;
     private PlaylistManager playlistManager;
     private VisualizerManager visualizerManager;
-    private ThemeController themeController;
 
     // Timer for sleep functionality
     private Timer sleepTimer;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // Initialize managers
         thumbnailManager = new ThumbnailManager();
         equalizerManager = new EqualizerManager(equalizerBox, presetComboBox);
         playlistManager = new PlaylistManager(mediaFiles, fileNames, filteredMediaFiles, filteredFileNames,
                 currentMediaIndex, btnSavePlaylist, btnAddToPlaylist, this);
         visualizerManager = new VisualizerManager(visualizerPane);
-        themeController = new ThemeController(
+        new ThemeController(
                 borderPane, themeComboBox, topVBox, topHBox, bottomVBox, bottomHBox1, bottomHBox2, leftVBox,
                 videoContainer, equalizerContainer, equalizerBox, presetComboBox,
                 btnPlay, btnPause, btnStop, btnPrevious, btnNext, btnRepeat, btnShuffle, btnFullScreen,
@@ -133,10 +131,7 @@ public class MediaPlayerController implements Initializable {
                 searchField, progressSlider, volumeSlider, speedComboBox, emptyPlaylistText
         );
 
-        // Initialize the default image view
         initializeDefaultImageView();
-
-        // Initialize empty playlist icon
         initializeEmptyPlaylistIcon();
 
         setupMediaControls();
@@ -150,58 +145,52 @@ public class MediaPlayerController implements Initializable {
 
         videoContainer.setAlignment(Pos.CENTER);
         mediaView.setPreserveRatio(true);
-
         mediaListView.setVisible(false);
         mediaGridView.setVisible(true);
 
         filteredMediaFiles.addAll(mediaFiles);
         filteredFileNames.addAll(fileNames);
 
-        searchField.setOnAction(e -> handleSearch(null));
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> filterMedia(newVal));
+        searchField.setOnAction(_ -> handleSearch(null));
+        searchField.textProperty().addListener((_, _, newVal) -> filterMedia(newVal));
 
-        mediaScrollPane.widthProperty().addListener((obs, oldVal, newVal) -> {
+        mediaScrollPane.widthProperty().addListener((_, _, newVal) -> {
             if (!isListView) {
                 Platform.runLater(this::populateGridView);
-            } else {
-                mediaListView.setPrefWidth(newVal.doubleValue() - 10);
             }
         });
 
         mediaScrollPane.heightProperty().addListener((obs, oldVal, newVal) -> {
             if (isListView) {
-                mediaListView.setPrefHeight(newVal.doubleValue() - 10);
+                mediaListView.requestLayout();
             }
         });
 
-        // Add listeners for BorderPane size changes
         borderPane.widthProperty().addListener((obs, oldVal, newVal) -> {
-            Platform.runLater(() -> {
-                if (isListView) {
-                    mediaListView.setPrefWidth(newVal.doubleValue() - leftVBox.getWidth() - 20);
+            if (isListView) {
+                Platform.runLater(() -> {
                     mediaListView.requestLayout();
                     mediaScrollPane.requestLayout();
-                }
-            });
+                });
+            }
         });
         borderPane.heightProperty().addListener((obs, oldVal, newVal) -> {
-            Platform.runLater(() -> {
-                if (isListView) {
-                    mediaListView.setPrefHeight(newVal.doubleValue() - topVBox.getHeight() - bottomVBox.getHeight() - 20);
+            if (isListView) {
+                Platform.runLater(() -> {
                     mediaListView.requestLayout();
                     mediaScrollPane.requestLayout();
-                }
-            });
+                });
+            }
         });
 
-        // Add listeners for videoContainer size changes
         videoContainer.widthProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
         videoContainer.heightProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
 
-        // Shutdown hook with thread-safe UI operation
+        // ✅ Safe shutdown hook to avoid NullPointerException
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             thumbnailManager.getThumbnailExecutor().shutdown();
             visualizerManager.stopVisualizer();
+
             if (pipStage != null) {
                 Platform.runLater(() -> {
                     if (pipStage.isShowing()) {
@@ -209,18 +198,29 @@ public class MediaPlayerController implements Initializable {
                     }
                 });
             }
+
+            if (mediaPlayer != null) {
+                Platform.runLater(() -> {
+                    try {
+                        mediaPlayer.stop();
+                        mediaPlayer.dispose();
+                    } catch (Exception e) {
+                        System.out.println("Error on shutdown: " + e.getMessage());
+                    }
+                    mediaPlayer = null;
+                });
+            }
         }));
 
-        // Show default image initially
         showDefaultImage();
 
-        // Setup drag and drop
         borderPane.setOnDragOver(event -> {
             if (event.getDragboard().hasFiles()) {
                 event.acceptTransferModes(TransferMode.COPY);
             }
             event.consume();
         });
+
         borderPane.setOnDragDropped(event -> {
             Dragboard db = event.getDragboard();
             if (db.hasFiles()) {
@@ -234,7 +234,6 @@ public class MediaPlayerController implements Initializable {
             event.consume();
         });
 
-        // Setup focus listener for shortcuts
         borderPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
                 newScene.focusOwnerProperty().addListener((obs2, oldOwner, newOwner) -> {
@@ -245,18 +244,15 @@ public class MediaPlayerController implements Initializable {
             }
         });
 
-        // Setup media type filter
         mediaTypeFilter.getItems().addAll("All", "Audio", "Video");
         mediaTypeFilter.setValue("All");
         mediaTypeFilter.setOnAction(e -> filterMediaByType(mediaTypeFilter.getValue()));
 
-        // Update window title with currentFileLabel
         currentFileLabel.textProperty().addListener((obs, oldVal, newVal) -> {
             Stage stage = (Stage) borderPane.getScene().getWindow();
             stage.setTitle(newVal.isEmpty() ? "SPlayer Media Player" : newVal);
         });
 
-        // Initialize PiP stage
         pipStage = new Stage();
         pipStage.initStyle(StageStyle.UTILITY);
         pipStage.setAlwaysOnTop(true);
@@ -268,18 +264,17 @@ public class MediaPlayerController implements Initializable {
         StackPane pipRoot = new StackPane(pipView);
         pipStage.setScene(new Scene(pipRoot, 320, 180));
         pipStage.setOnCloseRequest(e -> {
-            pipView.setMediaPlayer(null);
-            pipStage.hide();
-            btnPip.setStyle("-fx-base: #444;");
-            if (mediaPlayer != null) {
-                mediaView.setMediaPlayer(mediaPlayer);
-            }
+            Platform.runLater(() -> {
+                if (pipStage.isShowing()) {
+                    handlePip(null);
+                }
+            });
         });
         pipStage.setTitle("SPlayer PiP");
 
-        // Initially update empty playlist visibility
         updateEmptyPlaylistVisibility();
     }
+
 
     private void initializeDefaultImageView() {
         Image defaultImage;
@@ -449,28 +444,39 @@ public class MediaPlayerController implements Initializable {
                     new KeyFrame(Duration.ZERO, new KeyValue(mediaPlayer.volumeProperty(), 0)),
                     new KeyFrame(Duration.seconds(1), new KeyValue(mediaPlayer.volumeProperty(), volumeSlider.getValue() / 100))
             );
-            fadeIn.setOnFinished(e -> mediaPlayer.play());
+            fadeIn.setOnFinished(e -> {
+                mediaPlayer.play();
+                isPlaying = true;
+                btnPlay.setDisable(true);
+                btnPause.setDisable(false);
+                btnStop.setDisable(false);
+                File currentFile = filteredMediaFiles.get(currentMediaIndex);
+                if (thumbnailManager.isAudioFile(currentFile)) {
+                    visualizerManager.setVisualizerActive(true);
+                    visualizerManager.setPlaying(true);
+                    visualizerPane.setVisible(true);
+                    visualizerManager.startVisualizer();
+                } else {
+                    visualizerManager.setVisualizerActive(false);
+                    visualizerManager.setPlaying(false);
+                    visualizerPane.setVisible(false);
+                    visualizerManager.stopVisualizer();
+                }
+                // Ensure MediaPlayer is assigned to the correct view
+                if (isFullScreen && fullScreenMediaView != null) {
+                    fullScreenMediaView.setMediaPlayer(mediaPlayer);
+                } else if (pipStage.isShowing()) {
+                    pipView.setMediaPlayer(mediaPlayer);
+                    mediaView.setMediaPlayer(null);
+                    // Force re-render
+                    pipView.setFitWidth(321); // Slightly adjust size
+                    pipView.setFitWidth(320);
+                } else {
+                    mediaView.setMediaPlayer(mediaPlayer);
+                    pipView.setMediaPlayer(null);
+                }
+            });
             fadeIn.play();
-            isPlaying = true;
-            btnPlay.setDisable(true);
-            btnPause.setDisable(false);
-            btnStop.setDisable(false);
-            File currentFile = filteredMediaFiles.get(currentMediaIndex);
-            if (thumbnailManager.isAudioFile(currentFile)) {
-                visualizerManager.setVisualizerActive(true);
-                visualizerManager.setPlaying(true);
-                visualizerPane.setVisible(true);
-                visualizerManager.startVisualizer();
-            } else {
-                visualizerManager.setVisualizerActive(false);
-                visualizerManager.setPlaying(false);
-                visualizerPane.setVisible(false);
-                visualizerManager.stopVisualizer();
-            }
-            if (isFullScreen && fullScreenMediaView != null) fullScreenMediaView.setMediaPlayer(mediaPlayer);
-            if (pipStage != null && pipStage.isShowing()) {
-                pipView.setMediaPlayer(mediaPlayer);
-            }
         } else if (!filteredMediaFiles.isEmpty()) {
             loadAndPlayMedia(currentMediaIndex);
         }
@@ -506,14 +512,17 @@ public class MediaPlayerController implements Initializable {
             btnStop.setDisable(true);
             progressSlider.setValue(0);
             updateTimeLabels();
-            mediaView.setMediaPlayer(null);
             visualizerManager.setPlaying(false);
             visualizerManager.stopVisualizer();
             visualizerPane.setVisible(false);
             lyricsLabel.setVisible(false);
             btnLyrics.setStyle("-fx-base: #444;");
-            if (isFullScreen && fullScreenMediaView != null) fullScreenMediaView.setMediaPlayer(null);
-            if (pipStage != null && pipStage.isShowing()) {
+            // Ensure MediaPlayer is unassigned from all views
+            mediaView.setMediaPlayer(null);
+            if (isFullScreen && fullScreenMediaView != null) {
+                fullScreenMediaView.setMediaPlayer(null);
+            }
+            if (pipStage.isShowing()) {
                 pipView.setMediaPlayer(null);
                 pipStage.hide();
                 btnPip.setStyle("-fx-base: #444;");
@@ -839,25 +848,65 @@ public class MediaPlayerController implements Initializable {
         isFullScreen = false;
         btnFullScreen.setText("Fullscreen");
         if (mediaPlayer != null) {
-            mediaView.setMediaPlayer(mediaPlayer);
+            if (pipStage.isShowing()) {
+                pipView.setMediaPlayer(mediaPlayer);
+                // Force re-render
+                pipView.setFitWidth(321);
+                pipView.setFitWidth(320);
+            } else {
+                mediaView.setMediaPlayer(mediaPlayer);
+            }
         }
     }
 
     private void handlePip(ActionEvent event) {
-        if (mediaPlayer == null) return;
-
-        if (!pipStage.isShowing()) {
-            pipView.setMediaPlayer(mediaPlayer);
-            mediaView.setMediaPlayer(null);
-            if (isFullScreen) exitFullScreen();
-            pipStage.show();
-            btnPip.setStyle("-fx-background-color: #4CAF50;");
-        } else {
-            pipView.setMediaPlayer(null);
-            pipStage.hide();
-            mediaView.setMediaPlayer(mediaPlayer);
-            btnPip.setStyle("-fx-base: #444;");
+        if (mediaPlayer == null) {
+            showErrorAlert("Error", "No media loaded to display in Picture-in-Picture.");
+            return;
         }
+
+        Platform.runLater(() -> {
+            try {
+                visualizerManager.stopVisualizer(); // Pause visualizer to reduce CPU load
+                if (mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+                    mediaPlayer.pause(); // Pause to stabilize state
+                }
+
+                if (!pipStage.isShowing()) {
+                    // Transfer MediaPlayer to pipView
+                    mediaView.setMediaPlayer(null); // Clear main view first
+                    pipView.setMediaPlayer(mediaPlayer);
+                    if (isFullScreen) {
+                        exitFullScreen();
+                    }
+                    // Ensure video renders
+                    pipView.setFitWidth(321); // Slightly adjust size
+                    pipView.setFitWidth(320);
+                    pipStage.show();
+                    btnPip.setStyle("-fx-background-color: #4CAF50;");
+                } else {
+                    // Transfer MediaPlayer back to mediaView
+                    pipView.setMediaPlayer(null); // Clear pip view first
+                    mediaView.setMediaPlayer(mediaPlayer);
+                    pipStage.hide();
+                    btnPip.setStyle("-fx-base: #444;");
+                    // Restart visualizer if needed
+                    if (isPlaying && thumbnailManager.isAudioFile(filteredMediaFiles.get(currentMediaIndex))) {
+                        visualizerManager.setVisualizerActive(true);
+                        visualizerManager.setPlaying(true);
+                        visualizerPane.setVisible(true);
+                        visualizerManager.startVisualizer();
+                    }
+                }
+
+                // Resume playback if it was playing
+                if (isPlaying) {
+                    mediaPlayer.play();
+                }
+            } catch (Exception e) {
+                showErrorAlert("PiP Error", "Failed to toggle Picture-in-Picture: " + e.getMessage());
+            }
+        });
     }
 
     private void handleMute() {
@@ -1069,39 +1118,59 @@ public class MediaPlayerController implements Initializable {
         }
     }
 
-    public void loadMediaWithoutPlaying(int index) {
-        if (index < 0 || index >= filteredMediaFiles.size()) return;
+    void loadMediaWithoutPlaying(int index) {
+        if (index < 0 || index >= filteredMediaFiles.size()) {
+            showErrorAlert("Error", "Invalid media index.");
+            return;
+        }
 
         File file = filteredMediaFiles.get(index);
         loadingIndicator.setVisible(true);
+
+        // Pause current playback and visualizer
         if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.dispose();
+            mediaPlayer.pause();
+            visualizerManager.stopVisualizer();
         }
 
-        try {
-            Media media = new Media(file.toURI().toString());
-            mediaPlayer = new MediaPlayer(media);
-            if (pipStage != null && pipStage.isShowing()) {
-                pipView.setMediaPlayer(mediaPlayer);
-                mediaView.setMediaPlayer(null);
-            } else {
-                mediaView.setMediaPlayer(mediaPlayer);
-                pipView.setMediaPlayer(null);
+        Platform.runLater(() -> {
+            try {
+                // Only create a new MediaPlayer if necessary
+                if (mediaPlayer == null || !mediaPlayer.getMedia().getSource().equals(file.toURI().toString())) {
+                    if (mediaPlayer != null) {
+                        mediaPlayer.stop();
+                        mediaPlayer.dispose();
+                    }
+                    Media media = new Media(file.toURI().toString());
+                    mediaPlayer = new MediaPlayer(media);
+                    setupMediaPlayer(file);
+                }
+
+                // Assign MediaPlayer to the appropriate view
+                if (pipStage.isShowing()) {
+                    pipView.setMediaPlayer(mediaPlayer);
+                    mediaView.setMediaPlayer(null);
+                    // Force re-render
+                    pipView.setFitWidth(321);
+                    pipView.setFitWidth(320);
+                } else {
+                    mediaView.setMediaPlayer(mediaPlayer);
+                    pipView.setMediaPlayer(null);
+                }
+
+                equalizerManager.setMediaPlayer(mediaPlayer);
+                visualizerManager.setMediaPlayer(mediaPlayer);
+                progressSlider.setValue(0);
+                updateTimeLabels();
+                mediaPlayer.setVolume(volumeSlider.getValue() / 100);
+                mediaPlayer.setRate(speedComboBox.getValue());
+                hideDefaultImage();
+            } catch (MediaException e) {
+                handleMediaLoadError(file, e);
+            } finally {
+                loadingIndicator.setVisible(false);
             }
-            setupMediaPlayer(file);
-            equalizerManager.setMediaPlayer(mediaPlayer);
-            visualizerManager.setMediaPlayer(mediaPlayer);
-            progressSlider.setValue(0);
-            updateTimeLabels();
-            mediaPlayer.setVolume(volumeSlider.getValue() / 100);
-            mediaPlayer.setRate(speedComboBox.getValue());
-            loadingIndicator.setVisible(false);
-            hideDefaultImage();
-        } catch (MediaException e) {
-            handleMediaLoadError(file, e);
-            loadingIndicator.setVisible(false);
-        }
+        });
     }
 
     private void loadAndPlayMedia(int index) {
@@ -1233,5 +1302,13 @@ public class MediaPlayerController implements Initializable {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    public Button getBtnSelectFolder1() {
+        return btnSelectFolder1;
+    }
+
+    public void setBtnSelectFolder1(Button btnSelectFolder1) {
+        this.btnSelectFolder1 = btnSelectFolder1;
     }
 }

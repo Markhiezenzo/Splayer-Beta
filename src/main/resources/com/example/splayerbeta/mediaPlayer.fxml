@@ -187,11 +187,6 @@
                                 <Tooltip text="Picture-in-Picture" />
                             </tooltip>
                         </Button>
-                        <Button fx:id="btnSelectFolder1" mnemonicParsing="false" prefHeight="0.0" prefWidth="32.0" style="-fx-base: #444;" text="📂">
-                            <tooltip>
-                                <Tooltip text="Select media folder" />
-                            </tooltip>
-                        </Button>
                     </children>
                 </HBox>
             </children>
@@ -219,7 +214,7 @@
                         </VBox>
                     </children>
                 </StackPane>
-                <ScrollPane fx:id="mediaScrollPane" fitToWidth="true" fitToHeight="true" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                <ScrollPane fx:id="mediaScrollPane" fitToHeight="true" fitToWidth="true" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <content>
                         <VBox fx:id="mediaContainer" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                             <children>
@@ -232,7 +227,7 @@
                                         <RowConstraints />
                                     </rowConstraints>
                                 </GridPane>
-                                <ListView fx:id="mediaListView" style="-fx-background-color: #333; -fx-control-inner-background: #333;" visible="false" managed="false" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
+                                <ListView fx:id="mediaListView" managed="false" style="-fx-background-color: #333; -fx-control-inner-background: #333;" visible="false" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS" />
                             </children>
                         </VBox>
                     </content>
