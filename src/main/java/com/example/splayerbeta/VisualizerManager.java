@@ -92,59 +92,78 @@ public class VisualizerManager {
     public void startVisualizer() {
         if (visualizerExecutor != null) {
             visualizerExecutor.shutdownNow();
+            try {
+                visualizerExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.err.println("Interrupted while shutting down visualizer executor: " + e.getMessage());
+            }
         }
         visualizerExecutor = Executors.newSingleThreadScheduledExecutor();
 
-        if (mediaPlayer != null) {
-            // Configure audio spectrum listener
-            mediaPlayer.setAudioSpectrumListener((timestamp, duration, magnitudes, phases) -> {
-                if (isPlaying && isVisualizerActive) {
-                    // Process spectrum data
-                    for (int i = 0; i < visualizerData.length; i++) {
-                        int index = i * (magnitudes.length / visualizerData.length);
-                        if (index < magnitudes.length) {
-                            // Normalize and scale magnitudes (-60 to 0 dB) to 0-100 range for smaller bars
-                            double magnitude = Math.max(0, magnitudes[index] + 60) * 1.66;
-                            targetHeights[i] = Math.min(magnitude, 100); // Cap at 100
-                        } else {
-                            targetHeights[i] = 4; // Minimum height
+        if (mediaPlayer != null && mediaPlayer.getMedia() != null) {
+            try {
+                // Configure audio spectrum listener
+                mediaPlayer.setAudioSpectrumListener((timestamp, duration, magnitudes, phases) -> {
+                    if (isPlaying && isVisualizerActive) {
+                        // Process spectrum data
+                        for (int i = 0; i < visualizerData.length; i++) {
+                            int index = i * (magnitudes.length / visualizerData.length);
+                            if (index < magnitudes.length) {
+                                // Normalize and scale magnitudes (-60 to 0 dB) to 0-100 range for smaller bars
+                                double magnitude = Math.max(0, magnitudes[index] + 60) * 1.66;
+                                targetHeights[i] = Math.min(magnitude, 100); // Cap at 100
+                            } else {
+                                targetHeights[i] = 4; // Minimum height
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            // Schedule visual updates at 60 FPS (16.67ms)
-            visualizerExecutor.scheduleAtFixedRate(() -> {
-                if (mediaPlayer != null && isPlaying && isVisualizerActive) {
-                    Platform.runLater(() -> {
-                        double paneHeight = visualizerPane.getHeight();
-                        for (int i = 0; i < visualizerBars.size(); i++) {
-                            Rectangle bar = visualizerBars.get(i);
-                            // Interpolate for smooth height transitions
-                            visualizerData[i] += (targetHeights[i] - visualizerData[i]) * 0.2;
-                            double height = Math.max(2, visualizerData[i] * (paneHeight / 200));
-                            bar.setHeight(height);
-                            bar.setTranslateY(-height / 40); // Center vertically
-                            bar.setFill(Color.WHITE); // Pure white bars
-                        }
-                    });
-                }
-            }, 0, 16, TimeUnit.MILLISECONDS); // 60 FPS
+                // Schedule visual updates at 60 FPS (16.67ms)
+                visualizerExecutor.scheduleAtFixedRate(() -> {
+                    if (mediaPlayer != null && isPlaying && isVisualizerActive) {
+                        Platform.runLater(() -> {
+                            double paneHeight = visualizerPane.getHeight();
+                            for (int i = 0; i < visualizerBars.size(); i++) {
+                                Rectangle bar = visualizerBars.get(i);
+                                // Interpolate for smooth height transitions
+                                visualizerData[i] += (targetHeights[i] - visualizerData[i]) * 0.2;
+                                double height = Math.max(2, visualizerData[i] * (paneHeight / 200));
+                                bar.setHeight(height);
+                                bar.setTranslateY(-height / 40); // Center vertically
+                                bar.setFill(Color.WHITE); // Pure white bars
+                            }
+                        });
+                    }
+                }, 0, 16, TimeUnit.MILLISECONDS); // 60 FPS
+            } catch (Exception e) {
+                System.err.println("Error starting visualizer: " + e.getMessage());
+                setVisualizerActive(false);
+            }
+        } else {
+            System.err.println("Cannot start visualizer: MediaPlayer or media is null");
         }
     }
 
     public void stopVisualizer() {
+        System.out.println("Stopping visualizer: executor=" + (visualizerExecutor != null) + ", mediaPlayer=" + (mediaPlayer != null));
         if (visualizerExecutor != null) {
             visualizerExecutor.shutdownNow();
             try {
                 visualizerExecutor.awaitTermination(100, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                System.err.println("Interrupted while stopping visualizer executor: " + e.getMessage());
             }
             visualizerExecutor = null;
         }
         if (mediaPlayer != null) {
-            mediaPlayer.setAudioSpectrumListener(null);
+            try {
+                mediaPlayer.setAudioSpectrumListener(null);
+            } catch (Exception e) {
+                System.err.println("Error removing audio spectrum listener: " + e.getMessage());
+            }
         }
         for (Rectangle bar : visualizerBars) {
             bar.setHeight(2);

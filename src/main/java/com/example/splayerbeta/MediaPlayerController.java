@@ -27,6 +27,7 @@ import javafx.util.Duration;
 import java.io.*;
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class MediaPlayerController implements Initializable {
 
@@ -186,31 +187,97 @@ public class MediaPlayerController implements Initializable {
         videoContainer.widthProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
         videoContainer.heightProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
 
-        // Safe shutdown hook to avoid NullPointerException
+        // Shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            thumbnailManager.getThumbnailExecutor().shutdown();
-            visualizerManager.stopVisualizer();
+            Platform.runLater(() -> {
+                try {
+                    // Stop and dispose of the visualizer
+                    if (visualizerManager != null) {
+                        visualizerManager.stopVisualizer();
+                    }
 
-            if (pipStage != null) {
-                Platform.runLater(() -> {
-                    if (pipStage.isShowing()) {
+                    // Stop and dispose of the thumbnail executor
+                    if (thumbnailManager != null) {
+                        thumbnailManager.getThumbnailExecutor().shutdownNow();
+                        try {
+                            thumbnailManager.getThumbnailExecutor().awaitTermination(100, TimeUnit.MILLISECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            System.err.println("Interrupted while stopping thumbnail executor: " + e.getMessage());
+                        }
+                    }
+
+                    // Close PiP stage if open
+                    if (pipStage != null && pipStage.isShowing()) {
                         pipStage.close();
                     }
-                });
-            }
 
-            if (mediaPlayer != null) {
-                Platform.runLater(() -> {
-                    try {
-                        mediaPlayer.stop();
-                        mediaPlayer.dispose();
-                    } catch (Exception e) {
-                        System.out.println("Error on shutdown: " + e.getMessage());
+                    // Stop and dispose of the media player
+                    if (mediaPlayer != null) {
+                        try {
+                            mediaPlayer.stop();
+                            mediaPlayer.dispose();
+                        } catch (Exception e) {
+                            System.err.println("Error disposing MediaPlayer: " + e.getMessage());
+                        }
+                        mediaPlayer = null;
                     }
-                    mediaPlayer = null;
+
+                    // Cancel sleep timer if active
+                    if (sleepTimer != null) {
+                        sleepTimer.cancel();
+                        sleepTimer = null;
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error in shutdown hook: " + e.getMessage());
+                }
+            });
+        }));
+
+        // Window close handler
+        borderPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                newScene.getWindow().setOnCloseRequest(e -> {
+                    try {
+                        // Stop the visualizer
+                        if (visualizerManager != null) {
+                            visualizerManager.stopVisualizer();
+                        }
+
+                        // Stop and dispose of the media player
+                        if (mediaPlayer != null) {
+                            mediaPlayer.stop();
+                            mediaPlayer.dispose();
+                            mediaPlayer = null;
+                        }
+
+                        // Stop the thumbnail executor
+                        if (thumbnailManager != null) {
+                            thumbnailManager.getThumbnailExecutor().shutdownNow();
+                            try {
+                                thumbnailManager.getThumbnailExecutor().awaitTermination(100, TimeUnit.MILLISECONDS);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                System.err.println("Interrupted while stopping thumbnail executor: " + ex.getMessage());
+                            }
+                        }
+
+                        // Close PiP stage if open
+                        if (pipStage != null && pipStage.isShowing()) {
+                            pipStage.close();
+                        }
+
+                        // Cancel sleep timer if active
+                        if (sleepTimer != null) {
+                            sleepTimer.cancel();
+                            sleepTimer = null;
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Error during window close: " + ex.getMessage());
+                    }
                 });
             }
-        }));
+        });
 
         showDefaultImage();
 
@@ -493,43 +560,49 @@ public class MediaPlayerController implements Initializable {
             fadeOut.setOnFinished(e -> {
                 mediaPlayer.pause();
                 mediaPlayer.setVolume(volumeSlider.getValue() / 100);
+                isPlaying = false;
+                btnPlay.setDisable(false);
+                btnPause.setDisable(true);
+                visualizerManager.setPlaying(false);
+                visualizerManager.stopVisualizer();
+                visualizerPane.setVisible(false);
             });
             fadeOut.play();
-            isPlaying = false;
-            btnPlay.setDisable(false);
-            btnPause.setDisable(true);
-            visualizerManager.setPlaying(false);
-            visualizerManager.stopVisualizer();
-            visualizerPane.setVisible(false);
         }
     }
 
     private void handleStop(ActionEvent event) {
         if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.seek(Duration.ZERO);
-            isPlaying = false;
-            btnPlay.setDisable(false);
-            btnPause.setDisable(true);
-            btnStop.setDisable(true);
-            progressSlider.setValue(0);
-            updateTimeLabels();
-            visualizerManager.setPlaying(false);
-            visualizerManager.stopVisualizer();
-            visualizerPane.setVisible(false);
-            lyricsLabel.setVisible(false);
-            btnLyrics.setStyle("-fx-base: #444;");
-            // Ensure MediaPlayer is unassigned from all views
-            mediaView.setMediaPlayer(null);
-            if (isFullScreen && fullScreenMediaView != null) {
-                fullScreenMediaView.setMediaPlayer(null);
+            try {
+                mediaPlayer.stop();
+                mediaPlayer.seek(Duration.ZERO);
+                visualizerManager.stopVisualizer(); // Ensure visualizer is stopped
+                isPlaying = false;
+                btnPlay.setDisable(false);
+                btnPause.setDisable(true);
+                btnStop.setDisable(true);
+                progressSlider.setValue(0);
+                updateTimeLabels();
+                lyricsLabel.setVisible(false);
+                btnLyrics.setStyle("-fx-base: #444;");
+                // Ensure MediaPlayer is unassigned from all views
+                mediaView.setMediaPlayer(null);
+                if (isFullScreen && fullScreenMediaView != null) {
+                    fullScreenMediaView.setMediaPlayer(null);
+                }
+                if (pipStage.isShowing()) {
+                    pipView.setMediaPlayer(null);
+                    pipStage.hide();
+                    btnPip.setStyle("-fx-base: #444;");
+                }
+                showDefaultImage();
+                // Dispose of the MediaPlayer
+                mediaPlayer.dispose();
+            } catch (Exception e) {
+                System.err.println("Error in handleStop: " + e.getMessage());
+            } finally {
+                mediaPlayer = null;
             }
-            if (pipStage.isShowing()) {
-                pipView.setMediaPlayer(null);
-                pipStage.hide();
-                btnPip.setStyle("-fx-base: #444;");
-            }
-            showDefaultImage();
         }
     }
 
@@ -1180,22 +1253,22 @@ public class MediaPlayerController implements Initializable {
 
         // Pause current playback and visualizer
         if (mediaPlayer != null) {
-            mediaPlayer.pause();
-            visualizerManager.stopVisualizer();
+            try {
+                mediaPlayer.pause();
+                visualizerManager.stopVisualizer();
+                mediaPlayer.stop();
+                mediaPlayer.dispose();
+            } catch (Exception e) {
+                System.err.println("Error disposing MediaPlayer in loadMediaWithoutPlaying: " + e.getMessage());
+            }
+            mediaPlayer = null;
         }
 
         Platform.runLater(() -> {
             try {
-                // Only create a new MediaPlayer if necessary
-                if (mediaPlayer == null || !mediaPlayer.getMedia().getSource().equals(file.toURI().toString())) {
-                    if (mediaPlayer != null) {
-                        mediaPlayer.stop();
-                        mediaPlayer.dispose();
-                    }
-                    Media media = new Media(file.toURI().toString());
-                    mediaPlayer = new MediaPlayer(media);
-                    setupMediaPlayer(file);
-                }
+                Media media = new Media(file.toURI().toString());
+                mediaPlayer = new MediaPlayer(media);
+                setupMediaPlayer(file);
 
                 // Assign MediaPlayer to the appropriate view
                 if (pipStage.isShowing()) {
