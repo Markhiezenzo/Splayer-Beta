@@ -509,43 +509,36 @@ public class MediaPlayerController implements Initializable {
             if (mediaPlayer.getCurrentTime().greaterThanOrEqualTo(mediaPlayer.getTotalDuration())) {
                 mediaPlayer.seek(Duration.ZERO);
             }
-            Timeline fadeIn = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(mediaPlayer.volumeProperty(), 0)),
-                    new KeyFrame(Duration.seconds(1), new KeyValue(mediaPlayer.volumeProperty(), volumeSlider.getValue() / 100))
-            );
-            fadeIn.setOnFinished(e -> {
-                mediaPlayer.play();
-                isPlaying = true;
-                btnPlay.setDisable(true);
-                btnPause.setDisable(false);
-                btnStop.setDisable(false);
-                File currentFile = filteredMediaFiles.get(currentMediaIndex);
-                if (thumbnailManager.isAudioFile(currentFile)) {
-                    visualizerManager.setVisualizerActive(true);
-                    visualizerManager.setPlaying(true);
-                    visualizerPane.setVisible(true);
-                    visualizerManager.startVisualizer();
-                } else {
-                    visualizerManager.setVisualizerActive(false);
-                    visualizerManager.setPlaying(false);
-                    visualizerPane.setVisible(false);
-                    visualizerManager.stopVisualizer();
-                }
-                // Ensure MediaPlayer is assigned to the correct view
-                if (isFullScreen && fullScreenMediaView != null) {
-                    fullScreenMediaView.setMediaPlayer(mediaPlayer);
-                } else if (pipStage.isShowing()) {
-                    pipView.setMediaPlayer(mediaPlayer);
-                    mediaView.setMediaPlayer(null);
-                    // Force re-render
-                    pipView.setFitWidth(321); // Slightly adjust size
-                    pipView.setFitWidth(320);
-                } else {
-                    mediaView.setMediaPlayer(mediaPlayer);
-                    pipView.setMediaPlayer(null);
-                }
-            });
-            fadeIn.play();
+            mediaPlayer.play();
+            isPlaying = true;
+            btnPlay.setDisable(true);
+            btnPause.setDisable(false);
+            btnStop.setDisable(false);
+            File currentFile = filteredMediaFiles.get(currentMediaIndex);
+            if (thumbnailManager.isAudioFile(currentFile)) {
+                visualizerManager.setVisualizerActive(true);
+                visualizerManager.setPlaying(true);
+                visualizerPane.setVisible(true);
+                visualizerManager.startVisualizer();
+            } else {
+                visualizerManager.setVisualizerActive(false);
+                visualizerManager.setPlaying(false);
+                visualizerPane.setVisible(false);
+                visualizerManager.stopVisualizer();
+            }
+            // Ensure MediaPlayer is assigned to the correct view
+            if (isFullScreen && fullScreenMediaView != null) {
+                fullScreenMediaView.setMediaPlayer(mediaPlayer);
+            } else if (pipStage.isShowing()) {
+                pipView.setMediaPlayer(mediaPlayer);
+                mediaView.setMediaPlayer(null);
+                // Force re-render
+                pipView.setFitWidth(321); // Slightly adjust size
+                pipView.setFitWidth(320);
+            } else {
+                mediaView.setMediaPlayer(mediaPlayer);
+                pipView.setMediaPlayer(null);
+            }
         } else if (!filteredMediaFiles.isEmpty()) {
             loadAndPlayMedia(currentMediaIndex);
         }
@@ -553,21 +546,13 @@ public class MediaPlayerController implements Initializable {
 
     private void handlePause(ActionEvent event) {
         if (mediaPlayer != null) {
-            Timeline fadeOut = new Timeline(
-                    new KeyFrame(Duration.ZERO, new KeyValue(mediaPlayer.volumeProperty(), mediaPlayer.getVolume())),
-                    new KeyFrame(Duration.seconds(1), new KeyValue(mediaPlayer.volumeProperty(), 0))
-            );
-            fadeOut.setOnFinished(e -> {
-                mediaPlayer.pause();
-                mediaPlayer.setVolume(volumeSlider.getValue() / 100);
-                isPlaying = false;
-                btnPlay.setDisable(false);
-                btnPause.setDisable(true);
-                visualizerManager.setPlaying(false);
-                visualizerManager.stopVisualizer();
-                visualizerPane.setVisible(false);
-            });
-            fadeOut.play();
+            mediaPlayer.pause();
+            isPlaying = false;
+            btnPlay.setDisable(false);
+            btnPause.setDisable(true);
+            visualizerManager.setPlaying(false);
+            visualizerManager.stopVisualizer();
+            visualizerPane.setVisible(false);
         }
     }
 
