@@ -186,7 +186,7 @@ public class MediaPlayerController implements Initializable {
         videoContainer.widthProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
         videoContainer.heightProperty().addListener((obs, oldVal, newVal) -> adjustMediaViewSize(mediaPlayer != null ? mediaPlayer.getMedia() : null));
 
-        // ✅ Safe shutdown hook to avoid NullPointerException
+        // Safe shutdown hook to avoid NullPointerException
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             thumbnailManager.getThumbnailExecutor().shutdown();
             visualizerManager.stopVisualizer();
@@ -675,6 +675,54 @@ public class MediaPlayerController implements Initializable {
                 label.setManaged(true);
                 label.setStyle("-fx-text-fill: white; -fx-font-size: 14;");
                 setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 14; -fx-padding: 5;");
+
+                // Add click event handler
+                setOnMouseClicked(e -> {
+                    System.out.println("ListView cell clicked: Item = " + getItem() + ", Index = " + getIndex() + ", Click count = " + e.getClickCount());
+                    String item = getItem();
+                    if (item == null || isEmpty()) {
+                        showErrorAlert("Error", "No file selected.");
+                        return;
+                    }
+
+                    int index = getIndex();
+                    if (index < 0 || index >= filteredMediaFiles.size()) {
+                        showErrorAlert("Error", "File not found in playlist.");
+                        return;
+                    }
+
+                    File file = filteredMediaFiles.get(index);
+                    if (file == null || !filteredMediaFiles.contains(file)) {
+                        showErrorAlert("Error", "Invalid file selected.");
+                        return;
+                    }
+
+                    currentMediaIndex = index;
+                    currentFileLabel.setText(item);
+                    btnAddToPlaylist.setDisable(false);
+                    mediaListView.getSelectionModel().select(index); // Highlight selected item
+
+                    if (e.getClickCount() == 2) {
+                        loadAndPlayMedia(currentMediaIndex);
+                    }
+                });
+
+                // Add keyboard support for Enter key
+                setOnKeyPressed(e -> {
+                    if (e.getCode() == KeyCode.ENTER) {
+                        int index = getIndex();
+                        if (index >= 0 && index < filteredMediaFiles.size()) {
+                            currentMediaIndex = index;
+                            currentFileLabel.setText(filteredFileNames.get(index));
+                            btnAddToPlaylist.setDisable(false);
+                            loadAndPlayMedia(currentMediaIndex);
+                        }
+                    }
+                });
+
+                // Visual feedback on hover
+                setOnMouseEntered(e -> setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-font-size: 14; -fx-padding: 5;"));
+                setOnMouseExited(e -> setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 14; -fx-padding: 5;"));
             }
 
             @Override
