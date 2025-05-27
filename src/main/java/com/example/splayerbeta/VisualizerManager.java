@@ -1,6 +1,7 @@
 package com.example.splayerbeta;
 
 import javafx.application.Platform;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
@@ -16,10 +17,14 @@ public class VisualizerManager {
     private StackPane visualizerPane;
     private boolean isVisualizerActive = false;
     private ScheduledExecutorService visualizerExecutor;
-    private double[] visualizerData = new double[10];
+    private double[] visualizerData = new double[20]; // Increased for finer resolution
+    private double[] targetHeights = new double[20]; // For smooth interpolation
     private List<Rectangle> visualizerBars = new ArrayList<>();
     private boolean isPlaying;
     private MediaPlayer mediaPlayer;
+    private final int barCount = 20;
+    private final double barWidthFactor = 0.025; // Reduced for smaller bars
+    private final double barSpacingFactor = 0.005; // Reduced for tighter spacing
 
     public VisualizerManager(StackPane visualizerPane) {
         this.visualizerPane = visualizerPane;
@@ -41,23 +46,47 @@ public class VisualizerManager {
 
     public void setVisualizerActive(boolean isVisualizerActive) {
         this.isVisualizerActive = isVisualizerActive;
+        visualizerPane.setVisible(isVisualizerActive);
     }
 
     private void setupVisualizer() {
         visualizerPane.setVisible(false);
+        // Bind pane size listener for responsive bars
+        visualizerPane.widthProperty().addListener((obs, oldVal, newVal) -> updateBarLayout());
+        visualizerPane.heightProperty().addListener((obs, oldVal, newVal) -> updateBarLayout());
+        // Set initial height constraint to align with media player controls
+        visualizerPane.setPrefHeight(50); // Adjust this value based on media player height
+        visualizerPane.setTranslateY(-20); // Move up to align with controls
+    }
+
+    private void updateBarLayout() {
+        double paneWidth = visualizerPane.getWidth();
+        double barWidth = paneWidth * barWidthFactor;
+        double spacing = paneWidth * barSpacingFactor;
+        double totalWidth = barCount * barWidth + (barCount - 1) * spacing;
+        double startX = -totalWidth / 2;
+
+        for (int i = 0; i < visualizerBars.size(); i++) {
+            Rectangle bar = visualizerBars.get(i);
+            bar.setWidth(barWidth);
+            bar.setTranslateX(startX + i * (barWidth + spacing));
+        }
     }
 
     public void initVisualizerBars() {
         visualizerPane.getChildren().clear();
         visualizerBars.clear();
-        for (int i = 0; i < 20; i++) {
-            Rectangle bar = new Rectangle(8, 2, Color.LIGHTBLUE);
-            bar.setArcWidth(5);
-            bar.setArcHeight(5);
-            bar.setTranslateX((i - 10) * 10);
+        for (int i = 0; i < barCount; i++) {
+            Rectangle bar = new Rectangle(8, 2, Color.WHITE);
+            bar.setArcWidth(3);
+            bar.setArcHeight(3);
+            // Add subtle glow effect
+            DropShadow glow = new DropShadow(10, Color.rgb(255, 255, 255, 0.8));
+            bar.setEffect(glow);
             visualizerBars.add(bar);
             visualizerPane.getChildren().add(bar);
         }
+        updateBarLayout();
     }
 
     public void startVisualizer() {
@@ -72,34 +101,35 @@ public class VisualizerManager {
                 if (isPlaying && isVisualizerActive) {
                     // Process spectrum data
                     for (int i = 0; i < visualizerData.length; i++) {
-                        // Map magnitudes to visualizerData, scaling for visual effect
                         int index = i * (magnitudes.length / visualizerData.length);
                         if (index < magnitudes.length) {
-                            // Magnitudes are in dB (typically -60 to 0), normalize and scale
-                            double magnitude = Math.max(0, magnitudes[index] + 60) * 2; // Scale to 0-120 range
-                            visualizerData[i] = Math.min(magnitude, 100); // Cap at 100 for bar height
+                            // Normalize and scale magnitudes (-60 to 0 dB) to 0-100 range for smaller bars
+                            double magnitude = Math.max(0, magnitudes[index] + 60) * 1.66;
+                            targetHeights[i] = Math.min(magnitude, 100); // Cap at 100
                         } else {
-                            visualizerData[i] = 2; // Fallback minimum height
+                            targetHeights[i] = 4; // Minimum height
                         }
                     }
                 }
             });
 
-            // Schedule visual updates
+            // Schedule visual updates at 60 FPS (16.67ms)
             visualizerExecutor.scheduleAtFixedRate(() -> {
                 if (mediaPlayer != null && isPlaying && isVisualizerActive) {
                     Platform.runLater(() -> {
+                        double paneHeight = visualizerPane.getHeight();
                         for (int i = 0; i < visualizerBars.size(); i++) {
                             Rectangle bar = visualizerBars.get(i);
-                            double height = visualizerData[i % visualizerData.length];
-                            bar.setHeight(Math.max(2, height)); // Ensure minimum height
-                            // Dynamic color based on height and index
-                            bar.setFill(Color.hsb((i * 360.0 / visualizerBars.size() + (System.currentTimeMillis() / 50) % 360),
-                                    0.8, Math.min(0.8, height / 100), 0.8));
+                            // Interpolate for smooth height transitions
+                            visualizerData[i] += (targetHeights[i] - visualizerData[i]) * 0.2;
+                            double height = Math.max(2, visualizerData[i] * (paneHeight / 200));
+                            bar.setHeight(height);
+                            bar.setTranslateY(-height / 40); // Center vertically
+                            bar.setFill(Color.WHITE); // Pure white bars
                         }
                     });
                 }
-            }, 0, 50, TimeUnit.MILLISECONDS); // Update every 50ms for smoother animation
+            }, 0, 16, TimeUnit.MILLISECONDS); // 60 FPS
         }
     }
 
@@ -114,10 +144,11 @@ public class VisualizerManager {
             visualizerExecutor = null;
         }
         if (mediaPlayer != null) {
-            mediaPlayer.setAudioSpectrumListener(null); // Remove listener
+            mediaPlayer.setAudioSpectrumListener(null);
         }
         for (Rectangle bar : visualizerBars) {
-            bar.setHeight(2); // Reset bars to minimum height
+            bar.setHeight(2);
+            bar.setTranslateY(-1); // Reset position
         }
         visualizerPane.setVisible(false);
     }

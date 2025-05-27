@@ -219,7 +219,7 @@
                         </VBox>
                     </children>
                 </StackPane>
-                <ScrollPane fx:id="mediaScrollPane" fitToHeight="true" fitToWidth="true" prefHeight="192.0" prefWidth="308.0" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                <ScrollPane fx:id="mediaScrollPane" fitToHeight="true" fitToWidth="true" prefHeight="192.0" prefWidth="247.0" style="-fx-background: #222; -fx-background-color: #222;" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                     <content>
                         <VBox fx:id="mediaContainer" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                             <children>
