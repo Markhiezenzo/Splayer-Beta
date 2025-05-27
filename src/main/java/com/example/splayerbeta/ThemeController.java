@@ -112,37 +112,37 @@ public class ThemeController {
                 backgroundColor = "#333";
                 secondaryColor = "#222";
                 buttonColor = "#444";
-                textColor = "#FFFFFF";
+                textColor = "#FFFFFF"; // White text for black theme
                 break;
             case "white":
                 backgroundColor = "#FFFFFF";
                 secondaryColor = "#F0F0F0";
                 buttonColor = "#D3D3D3";
-                textColor = "#000000";
+                textColor = "#000000"; // Black text for white theme
                 break;
             case "skyblue":
                 backgroundColor = "#87CEEB";
                 secondaryColor = "#70B8D3";
                 buttonColor = "#5AA9C2";
-                textColor = "#000000";
+                textColor = "#000000"; // Black text for skyblue theme
                 break;
             case "pinkish":
                 backgroundColor = "#FFB6C1";
                 secondaryColor = "#F89FAB";
                 buttonColor = "#F28495";
-                textColor = "#000000";
+                textColor = "#000000"; // Black text for pinkish theme
                 break;
             case "hazel":
                 backgroundColor = "#8B7D6B";
                 secondaryColor = "#7A6C5A";
                 buttonColor = "#695B49";
-                textColor = "#FFFFFF";
+                textColor = "#000000"; // Black text for hazel theme
                 break;
             default:
                 backgroundColor = "#333";
                 secondaryColor = "#222";
                 buttonColor = "#444";
-                textColor = "#FFFFFF";
+                textColor = "#FFFFFF"; // Default to white text
                 break;
         }
 
@@ -159,36 +159,36 @@ public class ThemeController {
         equalizerBox.setStyle("-fx-background-color: " + secondaryColor + ";");
 
         // Apply button styles
-        String buttonStyle = "-fx-base: " + buttonColor + ";";
+        String buttonStyle = "-fx-base: " + buttonColor + "; -fx-text-fill: " + textColor + ";";
         btnPlay.setStyle(buttonStyle);
         btnPause.setStyle(buttonStyle);
         btnStop.setStyle(buttonStyle);
         btnPrevious.setStyle(buttonStyle);
         btnNext.setStyle(buttonStyle);
-        btnRepeat.setStyle(isButtonActive(btnRepeat) ? "-fx-background-color: #4CAF50;" : buttonStyle);
-        btnShuffle.setStyle(isButtonActive(btnShuffle) ? "-fx-background-color: #4CAF50;" : buttonStyle);
+        btnRepeat.setStyle(isButtonActive(btnRepeat) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
+        btnShuffle.setStyle(isButtonActive(btnShuffle) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
         btnFullScreen.setStyle(buttonStyle);
         btnPlaylist.setStyle(buttonStyle);
-        btnLyrics.setStyle(isButtonActive(btnLyrics) ? "-fx-background-color: #4CAF50;" : buttonStyle);
+        btnLyrics.setStyle(isButtonActive(btnLyrics) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
         btnAddToPlaylist.setStyle(buttonStyle);
         btnSavePlaylist.setStyle(buttonStyle);
         btnLoadPlaylist.setStyle(buttonStyle);
-        btnPip.setStyle(isButtonActive(btnPip) ? "-fx-background-color: #4CAF50;" : buttonStyle);
+        btnPip.setStyle(isButtonActive(btnPip) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
         btnSelectFolder.setStyle(buttonStyle);
-        btnEqualizer.setStyle(isButtonActive(btnEqualizer) ? "-fx-background-color: #4CAF50;" : buttonStyle);
+        btnEqualizer.setStyle(isButtonActive(btnEqualizer) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
         btnSearch.setStyle(buttonStyle);
-        btnSleepTimer.setStyle(isButtonActive(btnSleepTimer) ? "-fx-background-color: #4CAF50;" : buttonStyle);
+        btnSleepTimer.setStyle(isButtonActive(btnSleepTimer) ? "-fx-background-color: #4CAF50; -fx-text-fill: " + textColor + ";" : buttonStyle);
 
-        // Apply ComboBox and Slider styles
-        String controlStyle = "-fx-base: " + buttonColor + ";";
+        // Apply ComboBox styles with black text for all themes
+        String controlStyle = "-fx-base: " + buttonColor + "; -fx-text-fill: #000000;";
         btnfilelist.setStyle(controlStyle);
         mediaTypeFilter.setStyle(controlStyle);
         themeComboBox.setStyle(controlStyle);
         sleepTimerCombo.setStyle(controlStyle);
         presetComboBox.setStyle(controlStyle);
-        progressSlider.setStyle(controlStyle);
-        volumeSlider.setStyle(controlStyle);
         speedComboBox.setStyle(controlStyle);
+        progressSlider.setStyle("-fx-base: " + buttonColor + ";");
+        volumeSlider.setStyle("-fx-base: " + buttonColor + ";");
 
         // Apply text styles
         currentFileLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-weight: bold; -fx-font-size: 14;");

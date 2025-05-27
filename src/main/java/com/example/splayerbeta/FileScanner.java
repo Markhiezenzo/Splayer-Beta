@@ -7,12 +7,19 @@ import java.util.List;
 public class FileScanner {
 
     private static final String[] SUPPORTED_FORMATS = {
-            ".mp3", ".mp4", ".avi", ".mov", ".wav", ".m4a"
+            ".mp3", ".wav", ".m4a", ".flac", ".aac", ".mov" // Added .flac, .aac, and kept .mov
     };
 
-
+    public static List<File> scanMediaFiles(File directory) {
+        List<File> mediaFiles = new ArrayList<>();
+        scanDirectory(directory, mediaFiles);
+        return mediaFiles;
+    }
 
     private static void scanDirectory(File directory, List<File> mediaFiles) {
+        if (!directory.isDirectory()) {
+            return;
+        }
         File[] files = directory.listFiles();
         if (files != null) {
             for (File file : files) {
@@ -25,7 +32,7 @@ public class FileScanner {
         }
     }
 
-    private static boolean isSupportedMediaFile(File file) {
+    public static boolean isSupportedMediaFile(File file) {
         if (!file.isFile()) return false;
 
         String fileName = file.getName().toLowerCase();

@@ -191,9 +191,12 @@ public class ThumbnailManager {
                         return createFileTypeIcon(file, width, height);
                     }
                     if (isImageFile(file)) {
-                        return new Image(file.toURI().toString(), width, height, true, true, true);
+                        return new Image(file.toURI().toString(), width, height, false, true, true);
                     } else if (isVideoFile(file)) {
-                        return generateVideoThumbnail(file, width, height);
+                        // Pass desired dimensions based on view type
+                        int targetWidth = (width == LIST_THUMBNAIL_SIZE) ? LIST_THUMBNAIL_SIZE : 1920;
+                        int targetHeight = (width == LIST_THUMBNAIL_SIZE) ? LIST_THUMBNAIL_SIZE : 1080;
+                        return generateVideoThumbnail(file, targetWidth, targetHeight);
                     } else if (isAudioFile(file)) {
                         return generateAudioThumbnail(file, width, height);
                     } else {
@@ -226,53 +229,119 @@ public class ThumbnailManager {
         thumbnailExecutor.submit(thumbnailTask);
     }
 
-    public Image generateVideoThumbnail(File videoFile, int width, int height) {
+    public Image generateVideoThumbnail(File videoFile, int targetWidth, int targetHeight) {
         try {
             String uri = videoFile.toURI().toString();
             Media media = new Media(uri);
             MediaPlayer tempMediaPlayer = new MediaPlayer(media);
             MediaView tempMediaView = new MediaView(tempMediaPlayer);
-            tempMediaView.setFitWidth(width);
-            tempMediaView.setFitHeight(height);
-            tempMediaView.setPreserveRatio(true);
 
             CompletableFuture<Image> future = new CompletableFuture<>();
 
             tempMediaPlayer.setOnReady(() -> {
                 try {
+                    // Get video dimensions
+                    int videoWidth = media.getWidth();
+                    int videoHeight = media.getHeight();
+                    if (videoWidth <= 0 || videoHeight <= 0) {
+                        tempMediaPlayer.stop();
+                        tempMediaPlayer.dispose();
+                        future.complete(createFallbackVideoThumbnail(targetWidth, targetHeight));
+                        return;
+                    }
+
+                    // Determine if video is horizontal or vertical
+                    double aspectRatio = (double) videoWidth / videoHeight;
+                    int thumbnailWidth, thumbnailHeight;
+
+                    if (aspectRatio >= 1.0) { // Horizontal video
+                        thumbnailWidth = 1920;
+                        thumbnailHeight = 1080;
+                    } else { // Vertical video
+                        thumbnailWidth = 1080;
+                        thumbnailHeight = 1920;
+                    }
+
+                    // Set MediaView to match video dimensions initially
+                    tempMediaView.setFitWidth(videoWidth);
+                    tempMediaView.setFitHeight(videoHeight);
+                    tempMediaView.setPreserveRatio(true);
+
+                    // Seek to a point in the video (e.g., 25% of duration or 10s)
                     double totalDurationSeconds = media.getDuration().toSeconds();
                     double seekTime = Math.max(10.0, totalDurationSeconds * 0.25);
                     tempMediaPlayer.seek(Duration.seconds(seekTime));
-                    WritableImage snapshot = new WritableImage(width, height);
-                    tempMediaView.snapshot(null, snapshot);
-                    tempMediaPlayer.stop();
-                    tempMediaPlayer.dispose();
-                    boolean isBlack = true;
-                    for (int x = 0; x < width; x += 10) {
-                        for (int y = 0; y < height; y += 10) {
-                            if (snapshot.getPixelReader().getColor(x, y).getOpacity() > 0) {
-                                isBlack = false;
-                                break;
+
+                    // Create a temporary snapshot to get the video frame
+                    WritableImage tempSnapshot = new WritableImage(videoWidth, videoHeight);
+                    tempMediaView.snapshot(null, tempSnapshot);
+
+                    // Create final thumbnail image with target dimensions
+                    WritableImage thumbnail = new WritableImage(thumbnailWidth, thumbnailHeight);
+                    PixelWriter writer = thumbnail.getPixelWriter();
+
+                    // Scale and center the video frame
+                    double scaleX = (double) thumbnailWidth / videoWidth;
+                    double scaleY = (double) thumbnailHeight / videoHeight;
+                    double scale = Math.min(scaleX, scaleY); // Fit within target dimensions
+                    int scaledWidth = (int) (videoWidth * scale);
+                    int scaledHeight = (int) (videoHeight * scale);
+                    int offsetX = (thumbnailWidth - scaledWidth) / 2;
+                    int offsetY = (thumbnailHeight - scaledHeight) / 2;
+
+                    // Fill with transparent background
+                    for (int y = 0; y < thumbnailHeight; y++) {
+                        for (int x = 0; x < thumbnailWidth; x++) {
+                            writer.setColor(x, y, Color.TRANSPARENT);
+                        }
+                    }
+
+                    // Copy scaled video frame to thumbnail
+                    for (int y = 0; y < scaledHeight; y++) {
+                        for (int x = 0; x < scaledWidth; x++) {
+                            int srcX = (int) (x / scale);
+                            int srcY = (int) (y / scale);
+                            if (srcX < videoWidth && srcY < videoHeight) {
+                                Color color = tempSnapshot.getPixelReader().getColor(srcX, srcY);
+                                if (x + offsetX >= 0 && x + offsetX < thumbnailWidth && y + offsetY >= 0 && y + offsetY < thumbnailHeight) {
+                                    writer.setColor(x + offsetX, y + offsetY, color);
+                                }
                             }
                         }
-                        if (!isBlack) break;
                     }
+
+                    tempMediaPlayer.stop();
+                    tempMediaPlayer.dispose();
+
+                    // Check if the thumbnail is black
+                    boolean isBlack = true;
+                    for (int x = offsetX; x < offsetX + scaledWidth && isBlack; x += 10) {
+                        for (int y = offsetY; y < offsetY + scaledHeight; y += 10) {
+                            if (x >= 0 && x < thumbnailWidth && y >= 0 && y < thumbnailHeight) {
+                                if (thumbnail.getPixelReader().getColor(x, y).getOpacity() > 0) {
+                                    isBlack = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
                     if (isBlack) {
-                        future.complete(createFallbackVideoThumbnail(width, height));
+                        future.complete(createFallbackVideoThumbnail(thumbnailWidth, thumbnailHeight));
                     } else {
-                        future.complete(snapshot);
+                        future.complete(thumbnail);
                     }
                 } catch (Exception e) {
                     tempMediaPlayer.stop();
                     tempMediaPlayer.dispose();
-                    future.complete(createFallbackVideoThumbnail(width, height));
+                    future.complete(createFallbackVideoThumbnail(targetWidth, targetHeight));
                 }
             });
 
             tempMediaPlayer.setOnError(() -> {
                 tempMediaPlayer.stop();
                 tempMediaPlayer.dispose();
-                future.complete(createFallbackVideoThumbnail(width, height));
+                future.complete(createFallbackVideoThumbnail(targetWidth, targetHeight));
             });
 
             new Timer().schedule(new TimerTask() {
@@ -281,14 +350,14 @@ public class ThumbnailManager {
                     if (!future.isDone()) {
                         tempMediaPlayer.stop();
                         tempMediaPlayer.dispose();
-                        future.complete(createFallbackVideoThumbnail(width, height));
+                        future.complete(createFallbackVideoThumbnail(targetWidth, targetHeight));
                     }
                 }
             }, 5000);
 
             return future.get(10, TimeUnit.SECONDS);
         } catch (Exception e) {
-            return createFallbackVideoThumbnail(width, height);
+            return createFallbackVideoThumbnail(targetWidth, targetHeight);
         }
     }
 
@@ -297,7 +366,7 @@ public class ThumbnailManager {
         PixelWriter writer = image.getPixelWriter();
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                writer.setColor(x, y, Color.DARKSLATEBLUE);
+                writer.setColor(x, y, Color.TRANSPARENT);
             }
         }
         int playSize = Math.min(width, height) / 3;
