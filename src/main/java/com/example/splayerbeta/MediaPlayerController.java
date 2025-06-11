@@ -526,7 +526,6 @@ public class MediaPlayerController implements Initializable {
                 visualizerPane.setVisible(false);
                 visualizerManager.stopVisualizer();
             }
-            // Ensure MediaPlayer is assigned to the correct view
             if (isFullScreen && fullScreenMediaView != null) {
                 fullScreenMediaView.setMediaPlayer(mediaPlayer);
             } else if (pipStage.isShowing()) {
